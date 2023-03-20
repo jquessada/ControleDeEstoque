@@ -9,5 +9,5 @@ Class Produto:
 		self.categoria = categoria
 
 Class Estoque:
-	sef __init__(self):
+	def __init__(self):
 	self.conexao = sqlite3.connect('estoque.db')
