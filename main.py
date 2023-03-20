@@ -10,4 +10,4 @@ Class Produto:
 
 Class Estoque:
 	def __init__(self):
-	self.conexao = sqlite3.connect('estoque.db')
+		self.conexao = sqlite3.connect('estoque.db')
