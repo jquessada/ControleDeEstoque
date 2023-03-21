@@ -10,7 +10,7 @@ class Produto:
 
 class Estoque:
 	def __init__(self):
-		self.conexao = sqlite3.connect('estoque.db')
+		self.connection = sqlite3.connect('estoque.db')
 		self.cursor = self.connection.cursor()
         self.cursor.execute('CREATE TABLE IF NOT EXISTS produtos (codigo_produto INTEGER, preco_compra REAL, preco_venda REAL, quantidade INTEGER, categoria TEXT)')
         self.connection.commit()
@@ -24,12 +24,12 @@ class Estoque:
 		self.connection.commit()
 
 	def consultar_produto(self, codigo_produto):
-		self.cursor.execute('SELECT * FROM produtos WHERE codigo_produto = ?', (codigo_produto))
-		produto = self.cursor.fetchnone()
+		self.cursor.execute('SELECT * FROM produtos WHERE codigo_produto = ?', (codigo_produto,))
+		produto = self.cursor.fetchone()
 		if produto:
 			return Produto(*produto)
 		else:
-			return none
+			return None
 
 	def listar_produtos(self):
 		self.cursor.execute('SELECT * FROM  produtos')
@@ -39,4 +39,4 @@ class Estoque:
 		return produtos
 
 	def sair(self):
-		self.connection.close
+		self.connection.close()
