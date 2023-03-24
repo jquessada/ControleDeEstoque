@@ -1,5 +1,9 @@
 import sqlite3
-from tkinter import *
+
+class Usuario:
+    def __init__(self, username, senha):
+        self.username = username
+        self.senha = senha
 
 class Produto:
     def __init__(self, codigo_produto, preco_compra, preco_venda, quantidade, categoria):
@@ -13,8 +17,20 @@ class Estoque:
     def __init__(self):
         self.conexao = sqlite3.connect('estoque.db')
         self.cursor = self.conexao.cursor()
-        self.cursor.execute('CREATE TABLE IF NOT EXISTS produtos (codigo_produto INTEGER, preco_compra REAL, preco_venda REAL, quantidade INTEGER, categoria TEXT)')
+        self.cursor.execute('CREATE TABLE IF NOT EXISTS produtos (codigo_produto INTEGER PRIMARY KEY, preco_compra REAL, preco_venda REAL, quantidade INTEGER, categoria TEXT)')
         self.conexao.commit()
+
+    def verifica_login(self, username, senha):
+        self.cursor.execute('SELECT * FROM usuarios WHERE username = ? AND password = ?', (username, senha,))
+        usuario = self.cursor.fetchone()
+        usuario = Usuario(*usuario)
+        if usuario:
+            menu()
+        else:
+            print("Credenciais incorretas!")
+            self.conexao.close()
+            login()
+
 
     def adicionar_produto(self, produto):
         self.cursor.execute('INSERT INTO produtos VALUES (?, ?, ?, ?, ?)', (produto.codigo_produto, produto.preco_compra, produto.preco_venda, produto.quantidade, produto.categoria))
@@ -43,6 +59,14 @@ class Estoque:
 
     def sair(self):
         self.conexao.close()
+        exit()
+
+def login():
+    estoque = Estoque()
+    username = input("Digite seu nome de usuário: ")
+    password = input("Digite sua senha: ")
+    credenciais = [username, password]
+    estoque.verifica_login(credenciais[0], credenciais[1])
 
 def menu():
     while True:
@@ -83,6 +107,4 @@ def menu():
         else:
             print("Resposta inválida!")
 
-
-estoque = Estoque()
-menu()
+login()
