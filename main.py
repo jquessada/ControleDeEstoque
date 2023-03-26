@@ -119,13 +119,22 @@ def cadastrar(estoque):
 
 def menu(estoque):
     while True:
-        resposta = int(input("""O que você gostaria de fazer?\n
+        while True:
+            try:
+                resposta = int(input("""O que você gostaria de fazer?\n
                 1 - Adicionar produto\n
                 2 - Remover produto\n
                 3 - Consultar produto\n
                 4 - Listar produtos\n
                 5 - sair\n"""))
 
+                if resposta not in [1, 2, 3, 4, 5]:
+                    raise ValueError("Resposta inválida! Por favor, informe uma das opções!\n")
+                break
+
+            except ValueError:
+                print("Entrada inválida, selecione uma das opções!\n")
+                
         if resposta == 1:
             codigo_produto = int(input("Digite o código do produto: "))
             preco_compra = float(input("Digite o preço de compra: ")) 
@@ -158,12 +167,19 @@ def menu(estoque):
             print("Resposta inválida!\n")
 
 estoque = Estoque()
-cadastro = int(input("Possui cadastro no sistema?\n1 - SIM\n2 - NÃO\n"))
 
+while True:
+    try:
+        cadastro = int(input("Possui cadastro no sistema?\n1 - SIM\n2 - NÃO\n"))
+        if cadastro not in [1,2]:
+            raise ValueError("Resposta inválida! Por favor, informe uma das opções!\n")
+        break
+    except ValueError:
+        print("Entrada inválida, selecione uma das opções!\n")
 
 if cadastro == 1:
     login(estoque)
 elif cadastro == 2:
     cadastrar(estoque)
 else:
-    print("Resposta inválida!\n")
+    print("Resposta invàlida!\n")
