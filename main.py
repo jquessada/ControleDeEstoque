@@ -1,4 +1,5 @@
 import sqlite3
+import bcrypt
 
 class Usuario:
     def __init__(self, username, senha):
@@ -15,39 +16,71 @@ class Produto:
 
 class Estoque:
     def __init__(self):
-        self.conexao = sqlite3.connect('estoque.db')
-        self.cursor = self.conexao.cursor()
-        self.cursor.execute('CREATE TABLE IF NOT EXISTS produtos (codigo_produto INTEGER PRIMARY KEY, preco_compra REAL, preco_venda REAL, quantidade INTEGER, categoria TEXT)')
-        self.conexao.commit()
+        try:
+            self.conexao = sqlite3.connect('estoque.db')
+            self.cursor = self.conexao.cursor()
+            self.cursor.execute('CREATE TABLE IF NOT EXISTS produtos (codigo_produto INTEGER PRIMARY KEY, preco_compra REAL, preco_venda REAL, quantidade INTEGER, categoria TEXT)')
+            self.conexao.commit()
+            self.cursor.execute('CREATE TABLE IF NOT EXISTS usuarios (username VARCHAR PRIMARY KEY, password VARCHAR)')
+            self.conexao.commit()
+        except Error as e:
+            print(e)
 
-    def verifica_login(self, username, senha):
-        self.cursor.execute('SELECT * FROM usuarios WHERE username = ? AND password = ?', (username, senha,))
-        usuario = self.cursor.fetchone()
-        usuario = Usuario(*usuario)
-        if usuario:
-            menu()
+
+    def adicionar_produto(self, produto, quantidade):
+        if quantidade > 0:
+            self.cursor.execute('INSERT INTO produtos VALUES (?, ?, ?, ?, ?)', (produto.codigo_produto, produto.preco_compra, produto.preco_venda, produto.quantidade, produto.categoria))
+            self.conexao.commit()
         else:
-            print("Credenciais incorretas!")
-            self.conexao.close()
-            login()
+            print("Impossível adicionar {} produtos!".format(quantidade))
 
+    def remover_produto(self, codigo_produto, quantidade):
+        self.cursor.execute('SELECT * FROM produtos WHERE codigo_produto = ?', (codigo_produto,))
+        produto = self.cursor.fetchone()
 
-    def adicionar_produto(self, produto):
-        self.cursor.execute('INSERT INTO produtos VALUES (?, ?, ?, ?, ?)', (produto.codigo_produto, produto.preco_compra, produto.preco_venda, produto.quantidade, produto.categoria))
-        self.conexao.commit()
+        if produto:
+            unidades = quantidade
+            produto = Produto(*produto)
+            quantidade_estoque = produto.quantidade
 
-    def remover_produto(self, codigo_produto):
-        self.cursor.execute('DELETE FROM produtos WHERE codigo_produto = ?', (codigo_produto,))
-        self.conexao.commit()
+            if (quantidade > 0 and quantidade <= quantidade_estoque):
+
+                while (quantidade > 0 and quantidade <= quantidade_estoque):
+                    self.cursor.execute('UPDATE produtos SET quantidade = quantidade - ? WHERE codigo_produto = ?', (1, produto.codigo_produto))
+                    self.conexao.commit()
+                    quantidade = quantidade - 1
+
+                print("{} unidade(s) do produto de código {} da categoria {} foram removidas do estoque\n".format(unidades, produto.codigo_produto, produto.categoria))
+                
+                self.cursor.execute('SELECT * FROM produtos WHERE codigo_produto = ?', (codigo_produto,))
+                produto = self.cursor.fetchone()
+
+                if produto:
+                    produto = Produto(*produto)
+
+                    if (produto.quantidade == 0):
+                        self.cursor.execute('DELETE FROM produtos WHERE codigo_produto = ?', (produto.codigo_produto,))
+                        self.conexao.commit()
+
+            elif quantidade > quantidade_estoque:
+                print("Existem apenas {} produtos em estoque!".format(quantidade_estoque))
+
+            elif quantidade < 0:
+                print("Não é possível remover {} produtos do estoque!".format(quantidade))
+
+        else:
+            print("Produto não encontrado no estoque!\n")
 
     def consultar_produto(self, codigo_produto):
         self.cursor.execute('SELECT * FROM produtos WHERE codigo_produto = ?', (codigo_produto,))
         produto = self.cursor.fetchone()
-        produto = Produto(*produto)
+
         if produto:
-            print(produto.codigo_produto, produto.preco_compra, produto.preco_venda, produto.quantidade, produto.categoria)
+            produto = Produto(*produto)
+            
+            print("codigo: {}\n preço de compra: {}\n preco de venda: {}\n quantidade: {}\n categoria: {}\n".format(produto.codigo_produto, produto.preco_compra, produto.preco_venda, produto.quantidade, produto.categoria))
         else:
-            print("Produto indisponível!")
+            print("Produto indisponível!\n")
 
     def listar_produtos(self):
         self.cursor.execute('SELECT * FROM produtos')
@@ -56,21 +89,37 @@ class Estoque:
             produtos.append(Produto(*produto))
         for produto in produtos:
             print(produto.codigo_produto, produto.preco_compra, produto.preco_venda, produto.quantidade, produto.categoria)
+        if len(produtos) < 1:
+            print("Não há produtos cadastrados\n")
 
     def sair(self):
         self.conexao.close()
         exit()
 
-def login():
-    estoque = Estoque()
+def login(estoque):
     username = input("Digite seu nome de usuário: ")
     password = input("Digite sua senha: ")
-    credenciais = [username, password]
-    estoque.verifica_login(credenciais[0], credenciais[1])
 
-def menu():
+    estoque.cursor.execute('SELECT password FROM usuarios WHERE username = ?', (username,))
+    hash_password = estoque.cursor.fetchone()[0]
+
+    if bcrypt.checkpw(password.encode('utf-8'), hash_password):
+        menu(estoque)
+    else:
+        print("Credenciais incorretas!\n")
+        estoque.sair()
+
+def cadastrar(estoque):
+    username = input("Digite seu novo nome de usuario: ")
+    password = input("Digite sua nova senha: ")
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    estoque.cursor.execute('INSERT INTO usuarios VALUES (?, ?)', (username, hashed))
+    estoque.conexao.commit()
+    login(estoque)
+
+def menu(estoque):
     while True:
-        resposta = int(input("""Bem vindo! O que você gostaria de fazer?\n
+        resposta = int(input("""O que você gostaria de fazer?\n
                 1 - Adicionar produto\n
                 2 - Remover produto\n
                 3 - Consultar produto\n
@@ -78,19 +127,20 @@ def menu():
                 5 - sair\n"""))
 
         if resposta == 1:
-            codigo_produto = input("Digite o código do produto: ")
-            preco_compra = input("Digite o preço de compra: ") 
-            preco_venda = input("Digite o preço de venda: ") 
-            quantidade = input("Digite a quantidade: ") 
+            codigo_produto = int(input("Digite o código do produto: "))
+            preco_compra = float(input("Digite o preço de compra: ")) 
+            preco_venda = float(input("Digite o preço de venda: ")) 
+            quantidade = int(input("Digite a quantidade: ")) 
             categoria = input("Digite a categoria: ")
 
             produto = Produto(codigo_produto, preco_compra, preco_venda, quantidade, categoria)
-            estoque.adicionar_produto(produto)
+            estoque.adicionar_produto(produto, quantidade)
 
 
         elif resposta == 2:
             codigo_produto = input("Digite o código do produto: ")
-            estoque.remover_produto(codigo_produto)
+            quantidade = int(input("Digite a quantidade a ser removida: "))
+            estoque.remover_produto(codigo_produto, quantidade)
 
         elif resposta == 3:
             codigo_produto = input("Digite o código do produto: ")
@@ -105,6 +155,15 @@ def menu():
             exit()
 
         else:
-            print("Resposta inválida!")
+            print("Resposta inválida!\n")
 
-login()
+estoque = Estoque()
+cadastro = int(input("Possui cadastro no sistema?\n1 - SIM\n2 - NÃO\n"))
+
+
+if cadastro == 1:
+    login(estoque)
+elif cadastro == 2:
+    cadastrar(estoque)
+else:
+    print("Resposta inválida!\n")
