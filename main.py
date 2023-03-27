@@ -29,10 +29,23 @@ class Estoque:
 
     def adicionar_produto(self, produto, quantidade):
         if quantidade > 0:
-            self.cursor.execute('INSERT INTO produtos VALUES (?, ?, ?, ?, ?)', (produto.codigo_produto, produto.preco_compra, produto.preco_venda, produto.quantidade, produto.categoria))
-            self.conexao.commit()
+            try:
+                self.cursor.execute('INSERT INTO produtos VALUES (?, ?, ?, ?, ?)', (produto.codigo_produto, produto.preco_compra, produto.preco_venda, produto.quantidade, produto.categoria))
+                self.conexao.commit()
+            except sqlite3.IntegrityError:
+                print("Já existem produtos cadastrados com esse código!")
         else:
             print("Impossível adicionar {} produtos!".format(quantidade))
+
+    def atualizar_preco_venda(self, preco_venda, codigo_produto):
+        self.cursor.execute('SELECT * FROM produtos WHERE codigo_produto = ?', (codigo_produto,))
+        produto = self.cursor.fetchone()
+        if produto:
+            produto = Produto(*produto)
+            self.cursor.execute('UPDATE produtos SET preco_venda = ? WHERE codigo_produto = ?', (preco_venda, codigo_produto))
+            self.conexao.commit()
+        else:
+            print("O produto de código {} não foi encontrado no sistema".format(codigo_produto))
 
     def remover_produto(self, codigo_produto, quantidade):
         self.cursor.execute('SELECT * FROM produtos WHERE codigo_produto = ?', (codigo_produto,))
@@ -100,14 +113,19 @@ def login(estoque):
     username = input("Digite seu nome de usuário: ")
     password = input("Digite sua senha: ")
 
-    estoque.cursor.execute('SELECT password FROM usuarios WHERE username = ?', (username,))
-    hash_password = estoque.cursor.fetchone()[0]
+    try:
+        estoque.cursor.execute('SELECT password FROM usuarios WHERE username = ?', (username,))
+        hash_password = estoque.cursor.fetchone()[0]
 
-    if bcrypt.checkpw(password.encode('utf-8'), hash_password):
-        menu(estoque)
-    else:
+        if bcrypt.checkpw(password.encode('utf-8'), hash_password):
+            menu(estoque)
+        else:
+            print("Credenciais incorretas!\n")
+            login(estoque)
+
+    except TypeError:
         print("Credenciais incorretas!\n")
-        estoque.sair()
+        login(estoque)
 
 def cadastrar(estoque):
     username = input("Digite seu novo nome de usuario: ")
@@ -126,9 +144,10 @@ def menu(estoque):
                 2 - Remover produto\n
                 3 - Consultar produto\n
                 4 - Listar produtos\n
-                5 - sair\n"""))
+                5 - Atualizar preço de venda\n
+                6 - Sair\n"""))
 
-                if resposta not in [1, 2, 3, 4, 5]:
+                if resposta not in [1, 2, 3, 4, 5, 6]:
                     raise ValueError("Resposta inválida! Por favor, informe uma das opções!\n")
                 break
 
@@ -136,30 +155,58 @@ def menu(estoque):
                 print("Entrada inválida, selecione uma das opções!\n")
                 
         if resposta == 1:
-            codigo_produto = int(input("Digite o código do produto: "))
-            preco_compra = float(input("Digite o preço de compra: ")) 
-            preco_venda = float(input("Digite o preço de venda: ")) 
-            quantidade = int(input("Digite a quantidade: ")) 
-            categoria = input("Digite a categoria: ")
+            while True:
+                try:
+                    codigo_produto = int(input("Digite o código do produto: "))
+                    preco_compra = float(input("Digite o preço de compra: ")) 
+                    preco_venda = float(input("Digite o preço de venda: ")) 
+                    quantidade = int(input("Digite a quantidade: ")) 
+                    categoria = input("Digite a categoria: ")
+                    produto = Produto(codigo_produto, preco_compra, preco_venda, quantidade, categoria)
+                    estoque.adicionar_produto(produto, quantidade)
+                    break
 
-            produto = Produto(codigo_produto, preco_compra, preco_venda, quantidade, categoria)
-            estoque.adicionar_produto(produto, quantidade)
+                except ValueError:
+                    print("Entrada inválida!\n")
 
 
         elif resposta == 2:
-            codigo_produto = input("Digite o código do produto: ")
-            quantidade = int(input("Digite a quantidade a ser removida: "))
-            estoque.remover_produto(codigo_produto, quantidade)
+            while True:
+                try:
+                    codigo_produto = int(input("Digite o código do produto: "))
+                    quantidade = int(input("Digite a quantidade a ser removida: "))
+                    estoque.remover_produto(codigo_produto, quantidade)
+                    break
+
+                except ValueError:
+                    print("Entrada inválida!\n")
 
         elif resposta == 3:
-            codigo_produto = input("Digite o código do produto: ")
-            estoque.consultar_produto(codigo_produto)
+            while True:
+                try:
+                    codigo_produto = int(input("Digite o código do produto: "))
+                    estoque.consultar_produto(codigo_produto)
+                    break
+
+                except ValueError:
+                    print("Entrada inválida!\n")
 
         elif resposta == 4:
             estoque.listar_produtos()
 
         elif resposta == 5:
-            print("Até mais!")
+            while True:
+                try:
+                    codigo_produto = int(input("Digite o código do produto: "))
+                    preco_venda = float(input("Digite o novo preço de venda deste produto: "))
+                    estoque.atualizar_preco_venda(preco_venda, codigo_produto)
+                    break
+
+                except ValueError:
+                    print("Entrada inválida!\n")
+
+        elif resposta == 6:
+            print("Até mais!\n")
             estoque.sair()
             exit()
 
@@ -172,7 +219,7 @@ while True:
     try:
         cadastro = int(input("Possui cadastro no sistema?\n1 - SIM\n2 - NÃO\n"))
         if cadastro not in [1,2]:
-            raise ValueError("Resposta inválida! Por favor, informe uma das opções!\n")
+            raise ValueError("Entrada inválida, selecione uma das opções!\n")
         break
     except ValueError:
         print("Entrada inválida, selecione uma das opções!\n")
